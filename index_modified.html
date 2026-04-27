@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Transcriber Bot</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Rajdhani:wght@500&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'robot': ['Orbitron', 'sans-serif'],
+                        'mono': ['Share Tech Mono', 'monospace'],
+                        'body': ['Rajdhani', 'sans-serif'],
+                    },
+                    colors: {
+                        darkBg: '#0b0f19',
+                        neonCyan: '#00f3ff',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .neon-border {
+            box-shadow: 0 0 10px rgba(0, 243, 255, 0.2), inset 0 0 10px rgba(0, 243, 255, 0.1);
+            border: 1px solid rgba(0, 243, 255, 0.5);
+        }
+        .neon-text {
+            text-shadow: 0 0 8px rgba(0, 243, 255, 0.6);
+        }
+        .monitor-screen {
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0, 0, 0, 0.15),
+                rgba(0, 0, 0, 0.15) 1px,
+                transparent 1px,
+                transparent 2px
+            );
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.3);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 243, 255, 0.4);
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 243, 255, 0.8);
+        }
+    </style>
+</head>
+<body class="bg-darkBg text-gray-300 font-body min-h-screen flex items-center justify-center p-4">
+
+    <div class="w-full max-w-md bg-gray-900 bg-opacity-80 backdrop-blur-md rounded-2xl p-6 neon-border relative overflow-hidden">
+        <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-neonCyan to-transparent opacity-50"></div>
+
+        <div class="text-center mb-8">
+            <h1 class="font-robot text-2xl text-neonCyan neon-text tracking-wider uppercase">Neural_Xcribe</h1>
+            <p class="font-mono text-xs text-gray-500 mt-1">v1.2.0 // STATUS: ONLINE</p>
+        </div>
+
+        <div class="space-y-6">
+            <div>
+                <label class="font-mono text-xs text-neonCyan mb-2 block">> INPUT_URL</label>
+                <input type="text" id="urlInput" placeholder="Paste link YouTube / TikTok di sini..." 
+                    class="w-full bg-black bg-opacity-50 border border-gray-700 rounded-lg px-4 py-3 text-sm font-mono text-white focus:outline-none focus:border-neonCyan focus:ring-1 focus:ring-neonCyan transition-all placeholder-gray-600">
+            </div>
+
+            <div class="flex items-center space-x-3 bg-black bg-opacity-30 p-3 rounded-lg border border-gray-800">
+                <input type="checkbox" id="translateToggle" class="w-4 h-4 accent-neonCyan bg-gray-800 border-gray-700 rounded">
+                <label for="translateToggle" class="font-mono text-sm text-gray-300 select-none cursor-pointer">
+                    Translate to Indonesian
+                </label>
+            </div>
+
+            <button id="submitBtn" onclick="processData()" 
+                class="w-full bg-transparent border border-neonCyan text-neonCyan font-robot tracking-widest uppercase py-3 rounded-lg hover:bg-neonCyan hover:text-black transition-all duration-300 relative group">
+                <span id="btnText">Execute Process</span>
+
+                <div id="loadingSpinner" class="hidden absolute inset-0 flex items-center justify-center">
+                    <div class="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
+                    <span id="loadingText" class="ml-2 font-robot text-sm">Extracting Audio...</span>
+                </div>
+            </button>
+        </div>
+
+        <div id="resultContainer" class="mt-8 hidden">
+            <div class="flex justify-between items-center mb-2">
+                <label class="font-mono text-xs text-neonCyan">> OUTPUT_DATA</label>
+                <button onclick="copyToClipboard()" id="copyBtn" class="font-mono text-xs text-gray-400 hover:text-neonCyan transition-colors focus:outline-none">
+                    [ COPY_TEXT ]
+                </button>
+            </div>
+            <div class="bg-black monitor-screen neon-border rounded-lg p-4 h-64 overflow-y-auto relative">
+                <p id="resultText" class="font-mono text-sm text-green-400 whitespace-pre-wrap leading-relaxed"></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const BACKEND_URL = ""; 
+
+        async function processData() {
+            const urlInput = document.getElementById('urlInput').value;
+            const translateToggle = document.getElementById('translateToggle').checked;
+
+            const btnText = document.getElementById('btnText');
+            const loadingSpinner = document.getElementById('loadingSpinner');
+            const loadingText = document.getElementById('loadingText');
+            const submitBtn = document.getElementById('submitBtn');
+            const resultContainer = document.getElementById('resultContainer');
+            const resultText = document.getElementById('resultText');
+            const copyBtn = document.getElementById('copyBtn');
+
+            if (!urlInput) {
+                alert("Tolong masukkan link video terlebih dahulu!");
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.classList.add('bg-neonCyan', 'text-black');
+            btnText.classList.add('hidden');
+            loadingSpinner.classList.remove('hidden');
+            resultContainer.classList.add('hidden');
+            copyBtn.textContent = "[ COPY_TEXT ]";
+            loadingText.textContent = "Extracting & Transcribing...";
+
+            try {
+                const transcribeRes = await fetch(`${BACKEND_URL}/transcribe`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: urlInput }) 
+                });
+
+                if (!transcribeRes.ok) {
+                    const errData = await transcribeRes.json();
+                    throw new Error(errData.detail || `Error ${transcribeRes.status}`);
+                }
+
+                const transcribeData = await transcribeRes.json();
+                let finalOutput = transcribeData.transcript;
+
+                if (translateToggle && finalOutput) {
+                    loadingText.textContent = "Translating text with AI...";
+
+                    const translateRes = await fetch(`${BACKEND_URL}/translate`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ text: finalOutput })
+                    });
+
+                    if (!translateRes.ok) {
+                        const errData = await translateRes.json();
+                        throw new Error("Translation failed: " + (errData.detail || translateRes.status));
+                    }
+
+                    const translateData = await translateRes.json();
+                    finalOutput = translateData.translated;
+                }
+
+                resultText.textContent = finalOutput;
+                resultText.classList.replace('text-red-500', 'text-green-400');
+                resultContainer.classList.remove('hidden');
+
+            } catch (error) {
+                console.error("Error:", error);
+                resultText.textContent = ">>> SYSTEM_ERROR\n" + error.message;
+                resultText.classList.replace('text-green-400', 'text-red-500');
+                resultContainer.classList.remove('hidden');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.classList.remove('bg-neonCyan', 'text-black');
+                btnText.classList.remove('hidden');
+                loadingSpinner.classList.add('hidden');
+            }
+        }
+
+        function copyToClipboard() {
+            const textToCopy = document.getElementById('resultText').innerText;
+            const copyBtn = document.getElementById('copyBtn');
+
+            if (!textToCopy || textToCopy.includes(">>> SYSTEM_ERROR")) return;
+
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                copyBtn.textContent = "[ COPIED! ]";
+                setTimeout(() => { copyBtn.textContent = "[ COPY_TEXT ]"; }, 3000);
+            }).catch(err => {
+                console.error('Failed to copy text: ', err);
+                alert("Gagal menyalin teks.");
+            });
+        }
+    </script>
+</body>
+</html>
